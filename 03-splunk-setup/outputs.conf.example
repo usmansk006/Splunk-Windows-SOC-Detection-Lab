@@ -1,0 +1,5 @@
+[tcpout]
+defaultGroup = splunk_receiver
+
+[tcpout:splunk_receiver]
+server = UBUNTU_VM_IP:9997
