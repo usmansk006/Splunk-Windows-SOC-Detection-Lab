@@ -1,0 +1,24 @@
+index=main source="WinEventLog:Security"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| rex field=_raw "<Data Name='TargetUserName'>(?<TargetUserName>[^<]+)</Data>"
+| rex field=_raw "<Data Name='SubjectUserName'>(?<SubjectUserName>[^<]+)</Data>"
+| rex field=_raw "<Data Name='TargetDomainName'>(?<TargetDomainName>[^<]+)</Data>"
+| search EventID IN ("4720","4722","4724","4725","4726","4738")
+| eval Activity=case(
+    EventID="4720","Account Created",
+    EventID="4722","Account Enabled",
+    EventID="4724","Password Reset Attempted",
+    EventID="4725","Account Disabled",
+    EventID="4726","Account Deleted",
+    EventID="4738","Account Changed"
+)
+| eval Severity=case(
+    EventID="4720","Medium",
+    EventID="4722","Medium",
+    EventID="4724","High",
+    EventID="4725","Medium",
+    EventID="4726","High",
+    EventID="4738","Medium"
+)
+| table _time Severity Activity SubjectUserName TargetUserName TargetDomainName EventID
+| sort -_time
