@@ -45,7 +45,9 @@ PowerShell Operational logs provide visibility into PowerShell activity.
 - **4104** — Script block logging
 - **4103** — Module logging
 
-Event ID 4104 was observed during local verification. PowerShell logging policy configuration and forwarding to Splunk require separate validation.
+Event ID 4104 was successfully observed in Splunk.
+
+The PowerShell Operational channel is configured in the Splunk Universal Forwarder and event ingestion has been verified.
 
 ### Sysmon
 
@@ -73,22 +75,22 @@ The following events are targeted by the planned lab configuration:
 | 11 | File creation | Suspicious file activity |
 | 22 | DNS query | Domain lookup investigation |
 
-The custom configuration must be applied and validated before these event sources are considered fully operational.
+The custom Sysmon configuration was applied successfully and its configuration change was verified through Event ID 16.
+
+Sysmon Operational events were also successfully received and indexed in Splunk.
 
 ## 4. Splunk Universal Forwarder
 
-The Splunk Universal Forwarder is installed on the Windows endpoint.
-
-**Service status:** Running
+The Splunk Universal Forwarder is installed and running on the Windows endpoint.
 
 Configured Windows event sources include:
 
 - Windows Security
 - Windows System
+- Sysmon Operational
+- PowerShell Operational
 
-Earlier validation confirmed that both event sources were successfully indexed in Splunk under the `main` index.
-
-Sysmon and PowerShell event ingestion must be validated separately.
+All four event sources were successfully verified in Splunk under the `main` index.
 
 ## 5. Telemetry Flow
 
@@ -106,13 +108,13 @@ Sysmon and PowerShell event ingestion must be validated separately.
 | Windows 10 Pro | Verified |
 | Windows Security Logs | Verified in Splunk |
 | Windows System Logs | Verified in Splunk |
-| PowerShell Operational Logs | Verified locally |
-| PowerShell Event ID 4104 | Observed locally |
+| PowerShell Operational Logs | Verified in Splunk |
+| PowerShell Event ID 4104 | Observed in Splunk |
 | Sysmon 15.22 | Installed and running |
 | Sysmon Event ID 1 | Observed locally |
-| Custom Sysmon configuration | Pending validation |
-| Sysmon ingestion in Splunk | Pending validation |
-| PowerShell ingestion in Splunk | Pending validation |
+| Sysmon Event ID 16 | Configuration change verified |
+| Custom Sysmon configuration | Applied and validated |
+| Sysmon ingestion in Splunk | Verified |
 | Universal Forwarder | Running |
 
 ## 7. Security Considerations
