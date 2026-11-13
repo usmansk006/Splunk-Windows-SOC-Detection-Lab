@@ -1,0 +1,10 @@
+index=main source="WinEventLog:Security" "4625"
+| rex field=_raw "<Data Name='TargetUserName'>(?<TargetUserName>[^<]+)</Data>"
+| rex field=_raw "<Data Name='IpAddress'>(?<SourceIP>[^<]+)</Data>"
+| where TargetUserName IN ("SOC_Test01","SOC_Test02","SOC_Test03")
+| where isnotnull(SourceIP) AND SourceIP!="" AND SourceIP!="-"
+| bin _time span=5m
+| stats count as failed_attempts dc(TargetUserName) as unique_accounts values(TargetUserName) as targeted_accounts by _time SourceIP
+| where unique_accounts >= 3
+| table _time SourceIP failed_attempts unique_accounts targeted_accounts
+| sort -_time
