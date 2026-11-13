@@ -1,0 +1,18 @@
+
+index=main source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| rex field=_raw "<Data Name='Image'>(?<Image>[^<]+)</Data>"
+| rex field=_raw "<Data Name='ParentImage'>(?<ParentImage>[^<]+)</Data>"
+| rex field=_raw "<Data Name='CommandLine'>(?<CommandLine>[^<]*)</Data>"
+| rex field=_raw "<Data Name='ParentCommandLine'>(?<ParentCommandLine>[^<]*)</Data>"
+| search EventID="1"
+| eval ParentName=lower(replace(ParentImage,"^.*\\\\",""))
+| eval ChildName=lower(replace(Image,"^.*\\\\",""))
+| where (ParentName="wscript.exe" OR ParentName="cscript.exe" OR ParentName="winword.exe" OR ParentName="excel.exe" OR ParentName="powerpnt.exe" OR ParentName="outlook.exe")
+    AND (ChildName="powershell.exe" OR ChildName="pwsh.exe" OR ChildName="cmd.exe" OR ChildName="wscript.exe" OR ChildName="cscript.exe")
+| eval Detection_Reason=case(
+    ParentName="wscript.exe" OR ParentName="cscript.exe","Script host spawned command interpreter",
+    ParentName="winword.exe" OR ParentName="excel.exe" OR ParentName="powerpnt.exe" OR ParentName="outlook.exe","Office application spawned command interpreter"
+)
+| table _time ParentName ChildName ParentImage Image CommandLine ParentCommandLine Detection_Reason
+| sort -_time
