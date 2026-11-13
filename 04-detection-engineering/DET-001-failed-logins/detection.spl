@@ -1,0 +1,6 @@
+index=main source="WinEventLog:Security" "4625"
+| rex field=_raw "<Data Name='TargetUserName'>(?<TargetUserName>[^<]+)</Data>"
+| bin _time span=5m
+| stats count as failed_attempts by _time TargetUserName
+| where failed_attempts >= 2
+| sort -failed_attempts
