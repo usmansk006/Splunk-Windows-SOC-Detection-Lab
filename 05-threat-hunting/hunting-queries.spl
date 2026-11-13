@@ -1,0 +1,132 @@
+
+/*
+=========================================================
+THREAT HUNTING QUERIES
+Project: Splunk SOC Monitoring Lab
+Platform: Splunk Enterprise
+Endpoint: Windows 10 Pro
+=========================================================
+*/
+
+
+/*
+---------------------------------------------------------
+HUNT 01: AUTHENTICATION ACTIVITY
+Purpose: Count successful and failed logons.
+Events: 4624, 4625
+---------------------------------------------------------
+*/
+
+index=main source="WinEventLog:Security"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| search EventID IN ("4624","4625")
+| stats count by EventID
+
+
+/*
+---------------------------------------------------------
+HUNT 02: FAILED AUTHENTICATION ANALYSIS
+Purpose: Identify failed logons and examine source,
+account, logon type and failure status.
+Event: 4625
+---------------------------------------------------------
+*/
+
+index=main source="WinEventLog:Security"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| rex field=_raw "<Data Name='TargetUserName'>(?<TargetUserName>[^<]*)</Data>"
+| rex field=_raw "<Data Name='IpAddress'>(?<SourceIP>[^<]*)</Data>"
+| rex field=_raw "<Data Name='LogonType'>(?<LogonType>\d+)</Data>"
+| rex field=_raw "<Data Name='Status'>(?<Status>[^<]*)</Data>"
+| rex field=_raw "<Data Name='SubStatus'>(?<SubStatus>[^<]*)</Data>"
+| search EventID="4625"
+| table _time TargetUserName SourceIP LogonType Status SubStatus
+| sort -_time
+
+
+/*
+---------------------------------------------------------
+HUNT 03: LOGON SESSION CORRELATION
+Purpose: Correlate successful logons, explicit credential
+use and logoff activity.
+Events: 4624, 4634, 4648
+---------------------------------------------------------
+*/
+
+index=main source="WinEventLog:Security"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| rex field=_raw "<Data Name='TargetUserName'>(?<TargetUserName>[^<]*)</Data>"
+| rex field=_raw "<Data Name='TargetLogonId'>(?<TargetLogonId>[^<]*)</Data>"
+| rex field=_raw "<Data Name='SubjectLogonId'>(?<SubjectLogonId>[^<]*)</Data>"
+| search EventID IN ("4624","4634","4648")
+| table _time EventID TargetUserName TargetLogonId SubjectLogonId
+| sort _time
+
+
+/*
+---------------------------------------------------------
+HUNT 04: PROCESS CREATION BASELINE
+Purpose: Review process execution and parent-child
+relationships.
+Source: Sysmon Operational
+Event: 1
+---------------------------------------------------------
+*/
+
+index=main source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| search EventID="1"
+| rex field=_raw "<Data Name='Image'>(?<Image>[^<]+)</Data>"
+| rex field=_raw "<Data Name='CommandLine'>(?<CommandLine>[^<]+)</Data>"
+| rex field=_raw "<Data Name='ParentImage'>(?<ParentImage>[^<]+)</Data>"
+| rex field=_raw "<Data Name='User'>(?<User>[^<]+)</Data>"
+| table _time User Image ParentImage CommandLine
+| sort -_time
+
+
+/*
+---------------------------------------------------------
+HUNT 05: SCRIPT INTERPRETER PARENT-CHILD RELATIONSHIPS
+Purpose: Find process creation involving common scripting
+tools and command interpreters.
+Source: Sysmon Operational
+Event: 1
+---------------------------------------------------------
+*/
+
+index=main source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| rex field=_raw "<Data Name='Image'>(?<Image>[^<]+)</Data>"
+| rex field=_raw "<Data Name='ParentImage'>(?<ParentImage>[^<]+)</Data>"
+| rex field=_raw "<Data Name='CommandLine'>(?<CommandLine>[^<]+)</Data>"
+| search EventID="1"
+| where match(lower(Image),"\\\\(powershell|pwsh|cmd|wscript|cscript|mshta|rundll32|regsvr32)\.exe$")
+| table _time ParentImage Image CommandLine
+| sort -_time
+
+
+/*
+---------------------------------------------------------
+HUNT 06: WINDOWS ACCOUNT MANAGEMENT
+Purpose: Review account creation, enablement, password
+reset attempts, disablement, deletion and modification.
+Events: 4720, 4722, 4724, 4725, 4726, 4738
+---------------------------------------------------------
+*/
+
+index=main source="WinEventLog:Security"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| rex field=_raw "<Data Name='TargetUserName'>(?<TargetUserName>[^<]+)</Data>"
+| rex field=_raw "<Data Name='SubjectUserName'>(?<SubjectUserName>[^<]+)</Data>"
+| rex field=_raw "<Data Name='TargetDomainName'>(?<TargetDomainName>[^<]+)</Data>"
+| search EventID IN ("4720","4722","4724","4725","4726","4738")
+| eval Activity=case(
+    EventID="4720","Account Created",
+    EventID="4722","Account Enabled",
+    EventID="4724","Password Reset Attempted",
+    EventID="4725","Account Disabled",
+    EventID="4726","Account Deleted",
+    EventID="4738","Account Changed"
+)
+| table _time EventID Activity SubjectUserName TargetUserName TargetDomainName
+| sort -_time
