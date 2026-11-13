@@ -1,0 +1,15 @@
+index=main source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| rex field=_raw "<Data Name='Image'>(?<Image>[^<]+)</Data>"
+| rex field=_raw "<Data Name='CommandLine'>(?<CommandLine>[^<]*)</Data>"
+| rex field=_raw "<Data Name='ParentImage'>(?<ParentImage>[^<]+)</Data>"
+| search EventID="1"
+| where match(lower(Image),"certutil\.exe$")
+| where match(lower(CommandLine),"-decode|-urlcache|-encode")
+| eval Detection_Reason=case(
+    match(lower(CommandLine),"-decode"),"CertUtil Base64 decoding",
+    match(lower(CommandLine),"-urlcache"),"CertUtil URL cache operation",
+    match(lower(CommandLine),"-encode"),"CertUtil Base64 encoding"
+)
+| table _time Image ParentImage CommandLine Detection_Reason
+| sort -_time
