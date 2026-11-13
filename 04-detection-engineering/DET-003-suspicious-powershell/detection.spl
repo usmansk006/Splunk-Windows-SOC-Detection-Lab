@@ -1,0 +1,20 @@
+index=main source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "<EventID>(?<EventID>\d+)</EventID>"
+| rex field=_raw "<Data Name='Image'>(?<Image>[^<]+)</Data>"
+| rex field=_raw "<Data Name='CommandLine'>(?<CommandLine>[^<]*)</Data>"
+| rex field=_raw "<Data Name='ParentImage'>(?<ParentImage>[^<]*)</Data>"
+| rex field=_raw "<Data Name='User'>(?<User>[^<]*)</Data>"
+| search EventID="1" Image="*\\powershell.exe"
+| where NOT like(Image,"%SplunkUniversalForwarder%")
+| where match(CommandLine,"(?i)(-enc(odedcommand)?\b|-executionpolicy\s+bypass|-windowstyle\s+hidden|downloadstring|frombase64string|invoke-expression|\biex\b)")
+| eval Detection_Reason=case(
+    match(CommandLine,"(?i)-enc(odedcommand)?\b"),"Encoded command",
+    match(CommandLine,"(?i)-executionpolicy\s+bypass"),"Execution policy bypass",
+    match(CommandLine,"(?i)-windowstyle\s+hidden"),"Hidden window",
+    match(CommandLine,"(?i)downloadstring"),"DownloadString usage",
+    match(CommandLine,"(?i)frombase64string"),"Base64 decoding",
+    match(CommandLine,"(?i)invoke-expression|\biex\b"),"Dynamic expression execution",
+    1=1,"Suspicious PowerShell indicator"
+)
+| table _time User Image ParentImage CommandLine Detection_Reason
+| sort -_time
